@@ -17,7 +17,12 @@ test('sends JSON to the configured base URL and parses the response', async () =
 
 test('surfaces FastAPI validation and service errors', async () => {
   const client = createApiClient({ getBase: () => 'http://localhost:8000', fetchImpl: async () => jsonResponse({ detail: 'Ollama is unavailable.' }, 503) });
-  await assert.rejects(client('/api/v1/models'), /Ollama is unavailable/);
+  await assert.rejects(client('/api/v1/models'), (error) => error.httpStatus === 503 && /Ollama is unavailable/.test(error.message));
+});
+
+test('formats structured FastAPI validation errors', async () => {
+  const client = createApiClient({ getBase: () => 'http://localhost:8000', fetchImpl: async () => jsonResponse({ detail: [{ loc: ['body', 'code'], msg: 'Field required' }] }, 422) });
+  await assert.rejects(client('/api/v1/debug', { method: 'POST', body: {} }), (error) => error.httpStatus === 422 && /body → code: Field required/.test(error.message));
 });
 
 test('reports invalid JSON and unexpected successful payloads', async () => {

@@ -17,8 +17,23 @@ export function createApiClient({ getBase, fetchImpl = (...args) => fetch(...arg
       try { data = await response.json(); }
       catch { throw new Error(`The backend returned an invalid response (HTTP ${response.status}).`); }
       if (!response.ok) {
-        const detail = typeof data?.detail === 'string' ? data.detail : `Request failed (HTTP ${response.status}).`;
-        throw new Error(detail);
+        const value = data?.detail;
+        const detail = typeof value === 'string'
+          ? value
+          : Array.isArray(value)
+            ? value.map((entry) => {
+              if (entry && typeof entry === 'object') {
+                const location = Array.isArray(entry.loc) ? entry.loc.join(' → ') : 'Request';
+                return `${location}: ${entry.msg || 'Invalid value'}`;
+              }
+              return String(entry);
+            }).join('; ')
+            : value && typeof value === 'object' && typeof value.message === 'string'
+              ? value.message
+              : `Request failed (HTTP ${response.status}).`;
+        const error = new Error(detail);
+        error.httpStatus = response.status;
+        throw error;
       }
       if (!data || typeof data !== 'object' || Array.isArray(data)) {
         throw new Error('The backend response had an unexpected format.');

@@ -17,8 +17,12 @@
         <span>repo<span class="brand-accent">doctor</span><span class="brand-ai">AI</span></span>
       </a>
       <div class="connection-area">
-        <label class="api-setting" for="apiBase">API <input id="apiBase" type="url" spellcheck="false" aria-label="FastAPI backend base URL"></label>
-        <span id="connection" class="connection" role="status" aria-live="polite"><i></i><span>Checking backend</span></span>
+        <div class="connection-copy">
+          <span id="connection" class="connection" data-state="idle" role="status" aria-live="polite"><i></i><span>Connection not checked</span></span>
+          <span id="modelList" class="model-list">Check the backend to see available Ollama models.</span>
+        </div>
+        <button id="checkConnection" class="check-connection" type="button">Check connection</button>
+        <label class="api-setting" for="apiBase">FastAPI URL <input id="apiBase" type="url" value="http://127.0.0.1:8000" spellcheck="false" autocomplete="url" aria-label="FastAPI backend URL"></label>
       </div>
     </header>
 
@@ -30,14 +34,15 @@
       </section>
 
       <nav class="tool-tabs" aria-label="Choose a tool" role="tablist">
-        <button class="tool-tab active" id="tab-debug" role="tab" aria-selected="true" aria-controls="workspace" data-mode="debug"><span class="tab-icon">⌁</span> Debugger</button>
-        <button class="tool-tab" id="tab-trim" role="tab" aria-selected="false" aria-controls="workspace" data-mode="trim"><span class="tab-icon">⤵</span> CodeTrim</button>
+        <button class="tool-tab active" id="tab-debug" role="tab" aria-selected="true" aria-controls="workspace" data-mode="debug"><span class="tab-icon">⌁</span> AI Debugger</button>
+        <button class="tool-tab" id="tab-trim" role="tab" aria-selected="false" aria-controls="workspace" data-mode="trim" tabindex="-1"><span class="tab-icon">⤵</span> CodeTrim</button>
+        <button class="tool-tab" id="tab-verify" role="tab" aria-selected="false" aria-controls="workspace" data-mode="verify" tabindex="-1"><span class="tab-icon">✓</span> Code Verifier</button>
       </nav>
 
       <section id="workspace" class="workspace" role="tabpanel" aria-labelledby="tab-debug">
         <section class="panel source-panel" aria-labelledby="source-heading">
           <div class="panel-heading">
-            <div><div class="panel-kicker">01 / INPUT</div><h2 id="source-heading">Your source</h2></div>
+            <div><div class="panel-kicker">01 / INPUT</div><h2 id="sourceHeading">Your source</h2></div>
             <button class="text-button" id="loadSample" type="button">Load sample</button>
           </div>
           <div class="field-row">
@@ -54,8 +59,9 @@
           </div>
           <div id="trimFields" class="optional-fields hidden">
             <label class="field-label" for="trimGoal">Simplification goal <span>OPTIONAL</span></label>
-            <textarea id="trimGoal" class="error-input" rows="2" maxlength="2000" placeholder="e.g. Reduce repetition while keeping the code easy to read"></textarea>
+            <textarea id="trimGoal" class="error-input" rows="2" maxlength="2000" placeholder="e.g. Reduce repetition while keeping the code easy to read">Simplify the code without changing its behavior. Keep it readable.</textarea>
           </div>
+          <p id="editorNote" class="editor-note">Model-generated fixes are suggestions. Review and test them before use.</p>
           <div class="source-footer">
             <span class="limit-note">Up to 20,000 characters · Never executed</span>
             <button class="run-button" id="runAction" type="button"><span>Diagnose code</span><span aria-hidden="true">↗</span></button>
@@ -65,7 +71,7 @@
         <section class="panel result-panel" aria-labelledby="resultHeading">
           <div class="panel-heading result-heading">
             <div><div class="panel-kicker">02 / REVIEW</div><h2 id="resultHeading">Diagnosis</h2></div>
-            <span id="resultStatus" class="result-status">READY</span>
+            <span id="resultStatus" class="result-status">AWAITING INPUT</span>
           </div>
           <div id="resultContent" class="result-content" aria-live="polite" aria-busy="false">
             <div class="empty-state"><span class="empty-glyph" aria-hidden="true">⌘</span><h3>Nothing to review yet</h3><p>Add your code, then run a diagnosis. The original stays untouched while you review suggestions.</p></div>
@@ -73,11 +79,11 @@
         </section>
       </section>
 
-      <section class="verify-strip" aria-label="Syntax verification">
-        <div class="verify-copy"><span class="verify-icon" aria-hidden="true">✓</span><div><strong>Syntax check</strong><span>Static Python parsing only. No code is executed.</span></div></div>
-        <button id="verifyAction" class="verify-button" type="button">Check syntax <span aria-hidden="true">→</span></button>
+      <section class="verify-strip" aria-label="Quick syntax verification">
+        <div class="verify-copy"><span class="verify-icon" aria-hidden="true">✓</span><div><strong>Python syntax check</strong><span>Static parsing only. No code is executed or run.</span></div></div>
+        <button id="verifyAction" class="verify-button" type="button">Check current code <span aria-hidden="true">→</span></button>
       </section>
-      <p class="privacy-note"><span aria-hidden="true">◈</span> Local-first by design. The frontend sends code only to the FastAPI URL above; that backend connects to Ollama.</p>
+      <p class="privacy-note"><span aria-hidden="true">◈</span> Local-first by design. Code is sent to the FastAPI URL above; that backend connects to Ollama.</p>
     </main>
     <footer><span>RepoDoctor AI <span class="footer-sep">/</span> Experimental developer tool</span><span>AI suggestions can be wrong. Review before applying.</span></footer>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
