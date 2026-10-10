@@ -50,8 +50,10 @@ python -m venv .venv
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 
+Copy-Item .env.example .env
 ollama pull qwen2.5-coder:1.5b
 ollama list
+Invoke-RestMethod -Uri http://localhost:11434/api/tags
 
 uvicorn app.main:app --reload
 ~~~
@@ -79,10 +81,12 @@ For a different frontend origin, add that exact origin to the backend's `CORS_OR
 
 ## Configuration
 
-Copy .env.example to .env and adjust as needed:
+Copy `.env.example` to `.env` and adjust as needed. The application loads `.env` automatically when it starts:
 
 - OLLAMA_BASE_URL defaults to http://localhost:11434
 - OLLAMA_MODEL defaults to qwen2.5-coder:1.5b
+- OLLAMA_TIMEOUT_SECONDS defaults to 120
+- MAX_CODE_LENGTH defaults to 20000 characters
 - CORS_ORIGINS is a comma-separated list of allowed frontend origins
 
 Do not commit secrets or expose a local Ollama endpoint to the public internet.
@@ -97,7 +101,7 @@ Do not commit secrets or expose a local Ollama endpoint to the public internet.
 | POST | /api/v1/trim | Propose a simplified version and measure size |
 | POST | /api/v1/verify | Static Python syntax check; does not execute code |
 
-See the interactive schema at /docs after starting the server.
+See [the complete API contract](docs/api-contract.md) or the interactive schema at `/docs` after starting the server. The `/health` response distinguishes API availability, Ollama connectivity, and whether the configured model is installed.
 
 ## Example request
 
@@ -130,6 +134,14 @@ Tests mock Ollama calls and do not require a running model or paid service.
 - Do not use this prototype to run arbitrary repositories or install dependencies automatically.
 - A passing syntax check does not establish behavioral correctness, security, or global minimality.
 - Code reduction percentages compare source text size only; fewer characters are not necessarily better code.
+- Keep FastAPI bound to localhost for the local-first workflow. A cloud-hosted backend cannot reach Ollama on your Windows computer through `localhost`; remote access requires a separately secured network design.
+
+## Troubleshooting
+
+- If `http://127.0.0.1:8000/health` reports `ollama: "unavailable"`, make sure the Ollama app/service is running and `OLLAMA_BASE_URL` points to it. On Windows, the Ollama desktop app normally starts the service; `ollama serve` can start it from a terminal if needed.
+- If health reports `configured_model_available: false`, run `ollama pull qwen2.5-coder:1.5b`, then check the model name with `ollama list`.
+- If the browser cannot reach FastAPI, serve the frontend at `http://localhost:3000` as above (do not open the HTML as a `file://` page) and add its exact origin to `CORS_ORIGINS`.
+- If the API is hosted remotely, `http://localhost:11434` refers to the server itself, not your Windows computer. Do not expose Ollama directly to the public internet.
 
 ## Roadmap
 
