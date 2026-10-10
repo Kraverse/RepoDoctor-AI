@@ -68,13 +68,14 @@ test('shows ready only for a complete healthy response and handles incomplete va
     ollama: 'connected',
     configured_model: 'qwen2.5-coder:1.5b',
     configured_model_available: true,
-  }), { state: 'online', message: 'Ollama connected' });
+  }), { state: 'online', message: 'Ollama connected', modelAvailabilityReported: true });
 
   for (const response of [
     null,
     [],
     {},
     { api: 'ok', status: 'unknown', ollama: 'connected', configured_model_available: true },
+    { status: 'ok', ollama: 'connected' },
   ]) {
     assert.equal(classifyHealthResponse(response).state, 'offline');
   }
@@ -85,6 +86,23 @@ test('shows ready only for a complete healthy response and handles incomplete va
   }), {
     state: 'degraded',
     message: 'Ollama connected · configured model availability unknown',
+  });
+  assert.deepEqual(classifyHealthResponse({
+    status: 'ok',
+    ollama: 'connected',
+    model_count: 1,
+  }), {
+    state: 'online',
+    message: 'Ollama connected · configured model availability not reported',
+    modelAvailabilityReported: false,
+  });
+  assert.deepEqual(classifyHealthResponse({
+    status: 'degraded',
+    ollama: 'unavailable',
+    detail: 'Start Ollama and check OLLAMA_BASE_URL.',
+  }), {
+    state: 'degraded',
+    message: 'Ollama unavailable · check that the Ollama service is running',
   });
   assert.deepEqual(classifyHealthResponse({
     api: 'ok',

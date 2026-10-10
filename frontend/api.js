@@ -41,12 +41,30 @@ export function createApiClient({ getBase, fetchImpl = (...args) => fetch(...arg
 /** Interpret the fields returned by GET /health without conflating model and service failures. */
 export function classifyHealthResponse(health) {
   if (!health || typeof health !== 'object' || Array.isArray(health)
-    || health.api !== 'ok' || !['ok', 'degraded'].includes(health.status)) {
+    || !['ok', 'degraded'].includes(health.status)) {
+    return { state: 'offline', message: 'Backend health response is incomplete' };
+  }
+
+  const modernResponse = health.api === 'ok';
+  const legacyHealthyResponse = health.api === undefined
+    && health.status === 'ok'
+    && health.ollama === 'connected'
+    && Number.isInteger(health.model_count)
+    && health.model_count >= 0;
+  const legacyUnavailableResponse = health.api === undefined
+    && health.status === 'degraded'
+    && health.ollama === 'unavailable';
+  if (!modernResponse && !legacyHealthyResponse && !legacyUnavailableResponse) {
     return { state: 'offline', message: 'Backend health response is incomplete' };
   }
 
   if (health.ollama === 'unavailable') {
-    return { state: 'degraded', message: 'API online · Ollama unavailable · check that the Ollama service is running' };
+    return {
+      state: 'degraded',
+      message: modernResponse
+        ? 'API online · Ollama unavailable · check that the Ollama service is running'
+        : 'Ollama unavailable · check that the Ollama service is running',
+    };
   }
   if (health.ollama !== 'connected') {
     return { state: 'degraded', message: 'API online · Ollama status unknown · health response is incomplete' };
@@ -62,13 +80,20 @@ export function classifyHealthResponse(health) {
     };
   }
   if (health.configured_model_available !== true) {
+    if (legacyHealthyResponse) {
+      return {
+        state: 'online',
+        message: 'Ollama connected · configured model availability not reported',
+        modelAvailabilityReported: false,
+      };
+    }
     return { state: 'degraded', message: 'Ollama connected · configured model availability unknown' };
   }
   if (health.status === 'degraded') {
-    return { state: 'degraded', message: 'API online · backend reports degraded health' };
+    return { state: 'degraded', message: 'Backend reports degraded health', modelAvailabilityReported: true };
   }
 
-  return { state: 'online', message: 'Ollama connected' };
+  return { state: 'online', message: 'Ollama connected', modelAvailabilityReported: true };
 }
 
 /** Return only assumptions actually supplied as nonempty text by the debug API. */

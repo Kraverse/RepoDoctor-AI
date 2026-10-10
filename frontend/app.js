@@ -241,7 +241,10 @@ async function checkHealth() {
       const models = await apiRequest('/api/v1/models', { timeoutMs: 12000 });
       if (!Array.isArray(models.models)) throw new Error('The models response did not match the expected API schema.');
       const modelLabel = models.models.map((model) => model.name || model.model).filter(Boolean).join(', ');
-      setConnection('online', `Ollama connected${modelLabel ? ` · ${modelLabel}` : ''}`);
+      const availabilityNote = healthStatus.modelAvailabilityReported === false
+        ? ' · configured model availability not reported'
+        : '';
+      setConnection('online', `Ollama connected${modelLabel ? ` · ${modelLabel}` : ''}${availabilityNote}`);
     } catch { setConnection('online', 'Ollama connected · model list unavailable'); }
   } catch (error) { setConnection('offline', error.message.includes('connect') ? 'Backend unavailable' : 'Backend status unknown'); }
 }
