@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { classifyHealthResponse, createApiClient, getAssumptionsText } from '../api.js';
+import { classifyHealthResponse, createApiClient, getAssumptionsText, probeBackend } from '../api.js';
 
 const jsonResponse = (data, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => data });
 
@@ -34,7 +34,24 @@ test('reports invalid JSON and unexpected successful payloads', async () => {
 
 test('explains network/CORS failures without replacing user input', async () => {
   const client = createApiClient({ getBase: () => 'http://localhost:8000', fetchImpl: async () => { throw new TypeError('fetch failed'); } });
-  await assert.rejects(client('/api/v1/debug', { method: 'POST', body: { code: 'keep me', language: 'python' } }), /CORS configuration/);
+  await assert.rejects(client('/api/v1/debug', { method: 'POST', body: { code: 'keep me', language: 'python' } }), (error) => error.code === 'NETWORK_OR_CORS' && /browser could not read/.test(error.message));
+});
+
+test('no-CORS probe reports an opaque response as reachable but unreadable', async () => {
+  let request;
+  const result = await probeBackend('http://127.0.0.1:8000/', {
+    fetchImpl: async (...args) => { request = args; return { type: 'opaque' }; },
+  });
+  assert.deepEqual(result, { state: 'reachable_opaque' });
+  assert.equal(request[0], 'http://127.0.0.1:8000/health');
+  assert.equal(request[1].mode, 'no-cors');
+});
+
+test('no-CORS probe treats transport rejection as unreachable or browser-blocked', async () => {
+  const result = await probeBackend('http://127.0.0.1:8000', {
+    fetchImpl: async () => { throw new TypeError('blocked'); },
+  });
+  assert.deepEqual(result, { state: 'unreachable' });
 });
 
 test('aborts on timeout with a useful diagnostic', async () => {

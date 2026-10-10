@@ -5,7 +5,7 @@ import logging
 import re
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from app.config import APP_NAME, CORS_ORIGINS
+from app.config import APP_NAME, CORS_ORIGINS, OLLAMA_MODEL
 from app.schemas import CodeRequest, DebugResponse, TrimRequest, TrimResponse, VerifyRequest, VerifyResponse
 from app.services.ollama_client import generate, list_models
 
@@ -34,10 +34,29 @@ def root():
 async def health():
     try:
         models = await list_models()
-        return {"status": "ok", "ollama": "connected", "model_count": len(models)}
+        installed_names = {
+            item if isinstance(item, str) else item.get("name")
+            for item in models
+            if isinstance(item, (str, dict))
+        }
+        model_available = OLLAMA_MODEL in installed_names
+        return {
+            "api": "ok",
+            "status": "ok" if model_available else "degraded",
+            "ollama": "connected",
+            "model_count": len(models),
+            "configured_model": OLLAMA_MODEL,
+            "configured_model_available": model_available,
+        }
     except Exception as exc:
         logger.info("Ollama health check failed: %s", exc)
-        return {"status": "degraded", "ollama": "unavailable", "detail": "Start Ollama and check OLLAMA_BASE_URL."}
+        return {
+            "api": "ok",
+            "status": "degraded",
+            "ollama": "unavailable",
+            "configured_model": OLLAMA_MODEL,
+            "detail": "Start Ollama and check OLLAMA_BASE_URL.",
+        }
 
 
 @app.get("/api/v1/models")

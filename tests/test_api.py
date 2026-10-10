@@ -13,6 +13,72 @@ def test_root_has_docs_link():
     assert response.json()["docs"] == "/docs"
 
 
+def test_health_reports_api_ollama_and_configured_model(monkeypatch):
+    async def fake_models():
+        return [{"name": main_module.OLLAMA_MODEL}]
+    monkeypatch.setattr(main_module, "list_models", fake_models)
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {
+        "api": "ok",
+        "status": "ok",
+        "ollama": "connected",
+        "model_count": 1,
+        "configured_model": main_module.OLLAMA_MODEL,
+        "configured_model_available": True,
+    }
+
+
+def test_health_distinguishes_missing_model_and_unavailable_ollama(monkeypatch):
+    async def missing_model():
+        return [{"name": "some-other-model:latest"}]
+    monkeypatch.setattr(main_module, "list_models", missing_model)
+    response = client.get("/health")
+    assert response.json()["api"] == "ok"
+    assert response.json()["ollama"] == "connected"
+    assert response.json()["configured_model_available"] is False
+    assert response.json()["status"] == "degraded"
+
+    async def offline():
+        raise RuntimeError("Ollama is stopped")
+    monkeypatch.setattr(main_module, "list_models", offline)
+    response = client.get("/health")
+    assert response.json()["api"] == "ok"
+    assert response.json()["ollama"] == "unavailable"
+    assert "OLLAMA_BASE_URL" in response.json()["detail"]
+
+
+def test_model_listing_returns_ollama_models(monkeypatch):
+    expected = [{"name": main_module.OLLAMA_MODEL}]
+    async def fake_models():
+        return expected
+    monkeypatch.setattr(main_module, "list_models", fake_models)
+    response = client.get("/api/v1/models")
+    assert response.status_code == 200
+    assert response.json() == {"models": expected}
+
+
+def test_render_origin_cors_allows_health_and_json_preflight_but_not_arbitrary_origins():
+    origin = "https://repodoctor-ai.onrender.com"
+    health = client.get("/", headers={"Origin": origin})
+    assert health.headers["access-control-allow-origin"] == origin
+
+    preflight = client.options(
+        "/api/v1/debug",
+        headers={
+            "Origin": origin,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert preflight.status_code == 200
+    assert preflight.headers["access-control-allow-origin"] == origin
+    assert "POST" in preflight.headers["access-control-allow-methods"]
+
+    denied = client.get("/", headers={"Origin": "https://untrusted.example"})
+    assert "access-control-allow-origin" not in denied.headers
+
+
 def test_verify_python_syntax_passes_without_execution():
     response = client.post("/api/v1/verify", json={"code": "def add(a, b):\n    return a + b", "language": "python"})
     assert response.status_code == 200
