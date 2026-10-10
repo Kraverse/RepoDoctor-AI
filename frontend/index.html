@@ -1,30 +1,86 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#10131b"><title>RepoDoctor AI — Debug. Trim. Verify.</title>
-<style>
-:root{color-scheme:dark;--bg:#0b0e14;--panel:#131824;--line:#283144;--text:#edf2fb;--muted:#9aa7bd;--accent:#a6f36a;--cyan:#79d9ed}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 10% 0%,#1a2b2a 0,transparent 38%),var(--bg);color:var(--text);font:15px/1.5 Inter,system-ui,sans-serif}.wrap{max-width:1220px;margin:auto;padding:28px 22px 64px}.top{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:42px}.brand{display:flex;align-items:center;gap:12px;font-weight:750;font-size:19px}.logo{display:grid;place-items:center;width:42px;height:42px;border-radius:13px;background:var(--accent);color:#172112;font-size:22px}.pill{border:1px solid #33404d;border-radius:999px;padding:7px 12px;color:#c4d2df;font-size:12px}.hero{max-width:760px;margin-bottom:28px}.eyebrow{color:var(--accent);font-weight:750;letter-spacing:.13em;text-transform:uppercase;font-size:11px}.hero h1{font-size:clamp(36px,6vw,66px);letter-spacing:-.065em;line-height:1.03;margin:12px 0 15px}.hero h1 span{color:var(--accent)}.hero p{max-width:650px;color:var(--muted);font-size:16px}.modes{display:flex;gap:8px;flex-wrap:wrap;margin:26px 0 16px}.mode{border:1px solid var(--line);background:#121722;color:#b7c3d6;padding:10px 16px;border-radius:10px;cursor:pointer;font:inherit}.mode.active{background:#22351d;color:var(--accent);border-color:#527a3c}.layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(320px,.9fr);gap:16px}.card{background:linear-gradient(145deg,#151b27,#10141d);border:1px solid var(--line);border-radius:17px;overflow:hidden;min-width:0}.cardhead{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}.cardhead strong{font-size:14px}.sub,.status{color:var(--muted);font-size:12px}.editor{width:100%;min-height:330px;resize:vertical;border:0;outline:0;background:#0c1018;color:#e5edf8;padding:18px;font:13px/1.7 ui-monospace,Consolas,monospace;tab-size:4}.field{display:grid;gap:6px;padding:14px 18px 0}.field label{font-size:12px;color:var(--muted)}input,select,textarea{font:inherit}.field select,.field textarea{width:100%;background:#0c1018;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:10px}.actions{display:flex;align-items:center;gap:10px;padding:16px 18px;flex-wrap:wrap}.primary{background:var(--accent);border:0;border-radius:10px;padding:11px 17px;color:#14200f;font-weight:800;cursor:pointer}.secondary{background:#1a2130;border:1px solid var(--line);border-radius:10px;padding:10px 14px;color:var(--text);cursor:pointer}.primary:disabled{opacity:.55;cursor:wait}.result{padding:18px;min-height:320px;overflow-wrap:anywhere}.empty{color:var(--muted);display:grid;place-items:center;text-align:center;min-height:270px;padding:24px}.empty b{color:#dfe8f5;display:block;font-size:16px;margin-bottom:5px}.result pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b1017;border:1px solid #222d3e;border-radius:10px;padding:13px;font:12px/1.65 ui-monospace,Consolas,monospace}.label{color:var(--cyan);font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin:18px 0 7px}.notice{color:#d0c69a;background:#2b2819;border:1px solid #4c4629;padding:10px 12px;border-radius:9px;font-size:12px;margin-top:14px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:#0d121b;border:1px solid #273143;border-radius:10px;padding:12px}.stat strong{display:block;font-size:19px}.stat span{font-size:11px;color:var(--muted)}footer{margin-top:20px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}@media(max-width:820px){.layout{grid-template-columns:1fr}.top{margin-bottom:30px}.editor{min-height:260px}.result{min-height:200px}}@media(max-width:480px){.wrap{padding:18px 12px 40px}.pill{display:none}.hero h1{font-size:39px}.cardhead{padding:14px}.editor{padding:13px}}
-</style></head><body><div class="wrap">
-<header class="top"><div class="brand"><div class="logo">⌘</div><span>RepoDoctor <span style="color:var(--accent)">AI</span></span></div><div class="pill">LOCAL-FIRST · POWERED BY OLLAMA</div></header>
-<section class="hero"><div class="eyebrow">Your code, under diagnosis</div><h1>Debug smarter.<br><span>Trim with care.</span></h1><p>An AI-assisted developer workbench for diagnosing bugs, exploring simpler code, and checking Python syntax. Suggestions are transparent—verification is never faked.</p></section>
-<div class="modes"><button class="mode active" data-mode="debug">⌁ Debug</button><button class="mode" data-mode="trim">✂ CodeTrim</button><button class="mode" data-mode="verify">✓ Verify syntax</button></div>
-<div class="layout"><section class="card"><div class="cardhead"><strong id="inputTitle">Source code</strong><span class="sub">Paste or edit below</span></div>
-<div class="field"><label for="language">Language</label><select id="language"><option value="python">Python</option><option value="javascript">JavaScript</option><option value="typescript">TypeScript</option><option value="java">Java</option><option value="cpp">C++</option></select></div>
-<div class="field" id="errorField"><label for="errorMessage">Error message (optional)</label><textarea id="errorMessage" rows="2" placeholder="Paste traceback or describe unexpected behavior…"></textarea></div>
-<textarea id="code" class="editor" spellcheck="false" aria-label="Source code">def add_numbers(a, b):
-    return a - b
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0e12">
+  <meta name="description" content="A local-first AI workbench for debugging code, trimming safely, and checking Python syntax.">
+  <title>RepoDoctor AI — Developer workbench</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="RepoDoctor AI home">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span>repo<span class="brand-accent">doctor</span><span class="brand-ai">AI</span></span>
+      </a>
+      <div class="connection-area">
+        <label class="api-setting" for="apiBase">API <input id="apiBase" type="url" spellcheck="false" aria-label="FastAPI backend base URL"></label>
+        <span id="connection" class="connection" role="status" aria-live="polite"><i></i><span>Checking backend</span></span>
+      </div>
+    </header>
 
-print(add_numbers(2, 3))</textarea>
-<div class="actions"><button class="primary" id="runButton">Diagnose code →</button><button class="secondary" id="sampleButton">Load sample</button><span class="status" id="connectionStatus">API: not checked</span></div></section>
-<section class="card"><div class="cardhead"><strong id="resultTitle">Diagnosis report</strong><span class="sub" id="resultBadge">Awaiting input</span></div><div id="result" class="result"><div class="empty"><div><b>Your results appear here</b>Choose a mode, submit code, and review the result before applying changes.</div></div></div></section></div>
-<footer><span>RepoDoctor AI · MVP</span><span>Model output is a suggestion. Syntax checks do not prove correctness.</span></footer></div>
-<script>
-const $=id=>document.getElementById(id);let mode="debug";
-const samples={debug:"def add_numbers(a, b):\n    return a - b\n\nprint(add_numbers(2, 3))",trim:"def get_total(items):\n    total = 0\n    for item in items:\n        total = total + item\n    return total",verify:"def add_numbers(a, b):\n    return a + b"};
-function setMode(next){mode=next;document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("active",b.dataset.mode===mode));$("errorField").style.display=mode==="debug"?"grid":"none";$("inputTitle").textContent=mode==="verify"?"Code to inspect":"Source code";$("resultTitle").textContent=mode==="debug"?"Diagnosis report":mode==="trim"?"CodeTrim report":"Syntax verification";$("runButton").textContent=mode==="debug"?"Diagnose code →":mode==="trim"?"Find simpler code →":"Check syntax →";$("resultBadge").textContent="Awaiting input";}
-document.querySelectorAll(".mode").forEach(b=>b.addEventListener("click",()=>setMode(b.dataset.mode)));
-$("sampleButton").addEventListener("click",()=>{$("code").value=samples[mode]||samples.debug;$("errorMessage").value=mode==="debug"?"Expected addition, but the function subtracts.":"";});
-function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
-function block(title,value){return '<div class="label">'+escapeHtml(title)+'</div><pre>'+escapeHtml(value==null?"—":value)+'</pre>';}
-async function run(){const code=$("code").value;const language=$("language").value;if(!code.trim()){showError("Paste some code first.");return;}const base=prompt("FastAPI address (usually http://127.0.0.1:8000):","http://127.0.0.1:8000");if(!base)return;const endpoint=mode==="debug"?"/api/v1/debug":mode==="trim"?"/api/v1/trim":"/api/v1/verify";const payload=mode==="debug"?{code:code,language:language,error_message:$("errorMessage").value}:{code:code,language:language};$("runButton").disabled=true;$("runButton").textContent="Working…";$("resultBadge").textContent="Processing";$("result").innerHTML='<div class="empty"><div><b>Working on your code…</b>Waiting for FastAPI and local Ollama.</div></div>';try{const response=await fetch(base.replace(/\/+$/,"")+endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const data=await response.json();if(!response.ok)throw new Error(data.detail||("Request failed ("+response.status+")"));$("connectionStatus").textContent="API: connected";$("resultBadge").textContent=data.status||"Complete";if(mode==="debug"){$("result").innerHTML=block("Diagnosis",data.diagnosis)+block("Explanation",data.explanation)+block("Proposed code",data.proposed_code)+block("Unified diff",data.diff||"No textual changes detected.")+'<div class="notice">'+(data.warnings||[]).map(escapeHtml).join("<br>")+'</div>';}else if(mode==="trim"){$("result").innerHTML='<div class="stats"><div class="stat"><strong>'+data.original_lines+' → '+data.candidate_lines+'</strong><span>Lines</span></div><div class="stat"><strong>'+data.original_characters+' → '+data.candidate_characters+'</strong><span>Characters</span></div><div class="stat"><strong>'+data.character_reduction_percent+'%</strong><span>Character reduction</span></div></div>'+block("Explanation",data.explanation)+block("Candidate code",data.candidate_code)+'<div class="notice">'+(data.warnings||[]).map(escapeHtml).join("<br>")+'</div>';}else{$("result").innerHTML='<div class="label">Result</div><p>'+escapeHtml(data.status)+'</p><p>'+escapeHtml(data.message)+'</p><div class="notice">No code was executed. A syntax pass is not proof of correctness.</div>';}}catch(error){$("connectionStatus").textContent="API: unavailable";$("resultBadge").textContent="Request failed";showError(error.message+" — Make sure Ollama and FastAPI are running.");}finally{$("runButton").disabled=false;setMode(mode);}}
-function showError(message){$("result").innerHTML='<div class="notice">'+escapeHtml(message)+'</div>';}
-$("runButton").addEventListener("click",run);
-</script></body></html>
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div class="eyebrow"><span class="eyebrow-line"></span> LOCAL-FIRST CODE WORKBENCH</div>
+        <h1 id="page-title">Good code deserves<br><span>a second opinion.</span></h1>
+        <p>Find the bug. Explore a simpler version. Check syntax. Your code stays yours until you choose otherwise.</p>
+      </section>
+
+      <nav class="tool-tabs" aria-label="Choose a tool" role="tablist">
+        <button class="tool-tab active" id="tab-debug" role="tab" aria-selected="true" aria-controls="workspace" data-mode="debug"><span class="tab-icon">⌁</span> Debugger</button>
+        <button class="tool-tab" id="tab-trim" role="tab" aria-selected="false" aria-controls="workspace" data-mode="trim"><span class="tab-icon">⤵</span> CodeTrim</button>
+      </nav>
+
+      <section id="workspace" class="workspace" role="tabpanel" aria-labelledby="tab-debug">
+        <section class="panel source-panel" aria-labelledby="source-heading">
+          <div class="panel-heading">
+            <div><div class="panel-kicker">01 / INPUT</div><h2 id="source-heading">Your source</h2></div>
+            <button class="text-button" id="loadSample" type="button">Load sample</button>
+          </div>
+          <div class="field-row">
+            <label for="language">Language</label>
+            <select id="language">
+              <option value="python">Python</option><option value="javascript">JavaScript</option><option value="typescript">TypeScript</option><option value="java">Java</option><option value="cpp">C++</option><option value="go">Go</option><option value="rust">Rust</option><option value="ruby">Ruby</option><option value="bash">Bash</option>
+            </select>
+          </div>
+          <label class="field-label" for="sourceCode">Source code <span id="sourceCount">0 characters</span></label>
+          <div class="editor-wrap"><div id="lineNumbers" class="line-numbers" aria-hidden="true">1</div><textarea id="sourceCode" class="code-editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Source code editor" placeholder="Paste or write code here…"></textarea></div>
+          <div id="debugFields" class="optional-fields">
+            <label class="field-label" for="errorMessage">Error or unexpected behavior <span>OPTIONAL</span></label>
+            <textarea id="errorMessage" class="error-input" rows="3" placeholder="Paste a traceback or describe what went wrong…"></textarea>
+          </div>
+          <div id="trimFields" class="optional-fields hidden">
+            <label class="field-label" for="trimGoal">Simplification goal <span>OPTIONAL</span></label>
+            <textarea id="trimGoal" class="error-input" rows="2" maxlength="2000" placeholder="e.g. Reduce repetition while keeping the code easy to read"></textarea>
+          </div>
+          <div class="source-footer">
+            <span class="limit-note">Up to 20,000 characters · Never executed</span>
+            <button class="run-button" id="runAction" type="button"><span>Diagnose code</span><span aria-hidden="true">↗</span></button>
+          </div>
+        </section>
+
+        <section class="panel result-panel" aria-labelledby="resultHeading">
+          <div class="panel-heading result-heading">
+            <div><div class="panel-kicker">02 / REVIEW</div><h2 id="resultHeading">Diagnosis</h2></div>
+            <span id="resultStatus" class="result-status">READY</span>
+          </div>
+          <div id="resultContent" class="result-content" aria-live="polite" aria-busy="false">
+            <div class="empty-state"><span class="empty-glyph" aria-hidden="true">⌘</span><h3>Nothing to review yet</h3><p>Add your code, then run a diagnosis. The original stays untouched while you review suggestions.</p></div>
+          </div>
+        </section>
+      </section>
+
+      <section class="verify-strip" aria-label="Syntax verification">
+        <div class="verify-copy"><span class="verify-icon" aria-hidden="true">✓</span><div><strong>Syntax check</strong><span>Static Python parsing only. No code is executed.</span></div></div>
+        <button id="verifyAction" class="verify-button" type="button">Check syntax <span aria-hidden="true">→</span></button>
+      </section>
+      <p class="privacy-note"><span aria-hidden="true">◈</span> Local-first by design. The frontend sends code only to the FastAPI URL above; that backend connects to Ollama.</p>
+    </main>
+    <footer><span>RepoDoctor AI <span class="footer-sep">/</span> Experimental developer tool</span><span>AI suggestions can be wrong. Review before applying.</span></footer>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </div>
+</body>
+</html>

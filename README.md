@@ -63,6 +63,20 @@ Open:
 - Interactive API docs: http://127.0.0.1:8000/docs
 - Ollama tags: http://localhost:11434/api/tags
 
+### Start the frontend
+
+In a second terminal, from the repository root:
+
+~~~sh
+python -m http.server 5173 --bind 127.0.0.1 --directory frontend
+~~~
+
+Then open http://127.0.0.1:5173. The FastAPI server and Ollama must also be running. The frontend defaults to `http://127.0.0.1:8000`; change the API field in the header to use a different backend URL. That setting is saved in this browser only. The connection indicator checks `/health` and `/api/v1/models` and displays model names when available.
+
+The frontend is dependency-light static HTML, CSS, and JavaScript; no frontend build step or package installation is required. To run the frontend API-client tests, use `cd frontend && npm test` (Node.js 18+). To syntax-check its JavaScript, run `npm run check` from `frontend`.
+
+For a different frontend origin, add that exact origin to the backend's `CORS_ORIGINS` setting (comma-separated), restart FastAPI, and reload the page. The default backend configuration already allows `http://127.0.0.1:5173`. If requests fail, check the browser console and configure backend CORS; the frontend does not proxy or mask CORS errors. A hosted frontend/backend also cannot make a remote server reach Ollama on a developer's computer without an explicitly configured network path.
+
 ## Configuration
 
 Copy .env.example to .env and adjust as needed:
@@ -123,7 +137,7 @@ Tests mock Ollama calls and do not require a running model or paid service.
 - [x] Debug and trim API endpoints
 - [x] Safe static Python syntax validation
 - [x] Unit tests with mocked model calls
-- [ ] Frontend editor and unified diff viewer
+- [x] Frontend editor, debugger, CodeTrim, and diff review
 - [ ] AST-aware, language-specific transformations
 - [ ] Isolated test runner with explicit resource limits
 - [ ] Reproducible benchmark on real bug-fixing tasks
