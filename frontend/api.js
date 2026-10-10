@@ -37,3 +37,45 @@ export function createApiClient({ getBase, fetchImpl = (...args) => fetch(...arg
     }
   };
 }
+
+/** Interpret the fields returned by GET /health without conflating model and service failures. */
+export function classifyHealthResponse(health) {
+  if (!health || typeof health !== 'object' || Array.isArray(health)
+    || health.api !== 'ok' || !['ok', 'degraded'].includes(health.status)) {
+    return { state: 'offline', message: 'Backend health response is incomplete' };
+  }
+
+  if (health.ollama === 'unavailable') {
+    return { state: 'degraded', message: 'API online · Ollama unavailable · check that the Ollama service is running' };
+  }
+  if (health.ollama !== 'connected') {
+    return { state: 'degraded', message: 'API online · Ollama status unknown · health response is incomplete' };
+  }
+
+  if (health.configured_model_available === false) {
+    const model = typeof health.configured_model === 'string' ? health.configured_model.trim() : '';
+    return {
+      state: 'degraded',
+      message: model
+        ? `Ollama connected · configured model missing: ${model}`
+        : 'Ollama connected · configured model is missing',
+    };
+  }
+  if (health.configured_model_available !== true) {
+    return { state: 'degraded', message: 'Ollama connected · configured model availability unknown' };
+  }
+  if (health.status === 'degraded') {
+    return { state: 'degraded', message: 'API online · backend reports degraded health' };
+  }
+
+  return { state: 'online', message: 'Ollama connected' };
+}
+
+/** Return only assumptions actually supplied as nonempty text by the debug API. */
+export function getAssumptionsText(response) {
+  if (!response || typeof response !== 'object' || Array.isArray(response)
+    || typeof response.assumptions !== 'string' || !response.assumptions.trim()) {
+    return null;
+  }
+  return response.assumptions;
+}

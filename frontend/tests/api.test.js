@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createApiClient } from '../api.js';
+import { classifyHealthResponse, createApiClient, getAssumptionsText } from '../api.js';
 
 const jsonResponse = (data, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => data });
 
@@ -35,4 +35,74 @@ test('explains network/CORS failures without replacing user input', async () => 
 test('aborts on timeout with a useful diagnostic', async () => {
   const client = createApiClient({ getBase: () => 'http://localhost:8000', fetchImpl: (_url, { signal }) => new Promise((_, reject) => signal.addEventListener('abort', () => { const error = new Error('aborted'); error.name = 'AbortError'; reject(error); })) });
   await assert.rejects(client('/api/v1/debug', { timeoutMs: 5 }), /timed out/);
+});
+
+test('distinguishes an unavailable Ollama service from a missing configured model', () => {
+  const modelMissing = classifyHealthResponse({
+    api: 'ok',
+    status: 'degraded',
+    ollama: 'connected',
+    configured_model: 'qwen2.5-coder:1.5b',
+    configured_model_available: false,
+  });
+  assert.deepEqual(modelMissing, {
+    state: 'degraded',
+    message: 'Ollama connected · configured model missing: qwen2.5-coder:1.5b',
+  });
+
+  const ollamaUnavailable = classifyHealthResponse({
+    api: 'ok',
+    status: 'degraded',
+    ollama: 'unavailable',
+    configured_model: 'qwen2.5-coder:1.5b',
+    configured_model_available: false,
+  });
+  assert.equal(ollamaUnavailable.state, 'degraded');
+  assert.match(ollamaUnavailable.message, /^API online · Ollama unavailable/);
+});
+
+test('shows ready only for a complete healthy response and handles incomplete values', () => {
+  assert.deepEqual(classifyHealthResponse({
+    api: 'ok',
+    status: 'ok',
+    ollama: 'connected',
+    configured_model: 'qwen2.5-coder:1.5b',
+    configured_model_available: true,
+  }), { state: 'online', message: 'Ollama connected' });
+
+  for (const response of [
+    null,
+    [],
+    {},
+    { api: 'ok', status: 'unknown', ollama: 'connected', configured_model_available: true },
+  ]) {
+    assert.equal(classifyHealthResponse(response).state, 'offline');
+  }
+  assert.deepEqual(classifyHealthResponse({
+    api: 'ok',
+    status: 'ok',
+    ollama: 'connected',
+  }), {
+    state: 'degraded',
+    message: 'Ollama connected · configured model availability unknown',
+  });
+  assert.deepEqual(classifyHealthResponse({
+    api: 'ok',
+    status: 'ok',
+    ollama: 'unknown',
+    configured_model_available: true,
+  }), {
+    state: 'degraded',
+    message: 'API online · Ollama status unknown · health response is incomplete',
+  });
+});
+
+test('returns only nonempty assumptions supplied by the debug response', () => {
+  assert.equal(getAssumptionsText({ assumptions: 'The input is Python 3.' }), 'The input is Python 3.');
+  assert.equal(getAssumptionsText({ assumptions: '   ' }), null);
+  assert.equal(getAssumptionsText({ assumptions: '' }), null);
+  assert.equal(getAssumptionsText({}), null);
+  assert.equal(getAssumptionsText({ assumptions: ['invented'] }), null);
+  const untrusted = '<script>alert(1)</script>';
+  assert.equal(getAssumptionsText({ assumptions: untrusted }), untrusted);
 });

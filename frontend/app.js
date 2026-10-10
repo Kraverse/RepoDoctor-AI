@@ -1,4 +1,4 @@
-import { createApiClient } from './api.js';
+import { classifyHealthResponse, createApiClient, getAssumptionsText } from './api.js';
 
 const DEFAULT_API = 'http://127.0.0.1:8000';
 const $ = (id) => document.getElementById(id);
@@ -15,7 +15,7 @@ const apiRequest = createApiClient({ getBase: apiBase });
 
 function setConnection(status, text) {
   const item = $('connection');
-  item.classList.remove('online', 'offline');
+  item.classList.remove('online', 'offline', 'degraded');
   if (status) item.classList.add(status);
   item.querySelector('span').textContent = text;
 }
@@ -135,6 +135,10 @@ function renderDebug(data) {
   const result = $('resultContent');
   result.append(makeNode('div', 'report-label', 'DIAGNOSIS'), makeNode('p', 'report-copy', data.diagnosis));
   result.append(makeNode('div', 'report-label', 'EXPLANATION'), makeNode('p', 'report-copy', data.explanation));
+  const assumptions = getAssumptionsText(data);
+  if (assumptions !== null) {
+    result.append(makeNode('div', 'report-label', 'ASSUMPTIONS'), makeNode('p', 'report-copy', assumptions));
+  }
   result.append(codeSection('ORIGINAL SOURCE', state.original, `repodoctor-original.${extension()}`));
   result.append(codeSection('PROPOSED CODE', data.proposed_code, `repodoctor-proposed.${extension()}`, true));
   result.append(diffSection(data.diff));
@@ -231,16 +235,14 @@ async function verifyAction() {
 async function checkHealth() {
   try {
     const health = await apiRequest('/health', { timeoutMs: 12000 });
-    if (health.status !== 'ok' && health.status !== 'degraded') throw new Error('Unexpected health response.');
-    if (health.status === 'degraded' || health.ollama !== 'connected') {
-      setConnection('offline', 'API online · Ollama unavailable'); return;
-    }
+    const healthStatus = classifyHealthResponse(health);
+    if (healthStatus.state !== 'online') { setConnection(healthStatus.state, healthStatus.message); return; }
     try {
       const models = await apiRequest('/api/v1/models', { timeoutMs: 12000 });
       if (!Array.isArray(models.models)) throw new Error('The models response did not match the expected API schema.');
       const modelLabel = models.models.map((model) => model.name || model.model).filter(Boolean).join(', ');
       setConnection('online', `Ollama connected${modelLabel ? ` · ${modelLabel}` : ''}`);
-    } catch { setConnection('online', 'API connected · models unavailable'); }
+    } catch { setConnection('online', 'Ollama connected · model list unavailable'); }
   } catch (error) { setConnection('offline', error.message.includes('connect') ? 'Backend unavailable' : 'Backend status unknown'); }
 }
 function loadSample() {
