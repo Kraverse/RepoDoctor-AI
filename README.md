@@ -53,6 +53,10 @@ pip install -r requirements.txt
 ollama pull qwen2.5-coder:1.5b
 ollama list
 
+Copy-Item .env.example .env
+# Edit .env if your Ollama URL, model, or allowed frontend origins differ.
+# The backend loads this file automatically; process environment variables override it.
+
 uvicorn app.main:app --reload
 ~~~
 
@@ -71,19 +75,32 @@ In a second terminal, from the repository root:
 python -m http.server 5173 --bind 127.0.0.1 --directory frontend
 ~~~
 
-Then open http://127.0.0.1:5173. The FastAPI server and Ollama must also be running. The frontend defaults to `http://127.0.0.1:8000`; change the API field in the header to use a different backend URL. That setting is saved in this browser only. The connection indicator checks `/health` and `/api/v1/models` and displays model names when available.
+Then open http://127.0.0.1:5173. The FastAPI server and Ollama must also be running. The frontend defaults to `http://127.0.0.1:8000`; change the API field in the header to use a different backend URL. That setting is saved in this browser only. The connection indicator checks `/health` and `/api/v1/models`, displays model names, and checks whether the configured Ollama model is installed.
 
 The frontend is dependency-light static HTML, CSS, and JavaScript; no frontend build step or package installation is required. To run the frontend API-client tests, use `cd frontend && npm test` (Node.js 18+). To syntax-check its JavaScript, run `npm run check` from `frontend`.
 
-For a different frontend origin, add that exact origin to the backend's `CORS_ORIGINS` setting (comma-separated), restart FastAPI, and reload the page. The default backend configuration already allows `http://127.0.0.1:5173`. If requests fail, check the browser console and configure backend CORS; the frontend does not proxy or mask CORS errors. A hosted frontend/backend also cannot make a remote server reach Ollama on a developer's computer without an explicitly configured network path.
+The default exact-origin CORS allowlist includes the local development origins and `https://repodoctor-ai.onrender.com`. If you change the frontend origin, add that exact scheme/host/port to `CORS_ORIGINS` (comma-separated) in `.env`, restart FastAPI, and reload the page. Do not set the value to `*`.
+
+### Using the deployed Render frontend with your local Ollama
+
+The Render page is served over HTTPS, but its API URL is entered by the browser. When you use `http://127.0.0.1:8000`, `127.0.0.1` means the computer running that browser—not Render and not a different computer. You must start FastAPI on the same computer where you opened the page. FastAPI's default Uvicorn binding is loopback-only; keep it that way and do not expose port 8000 or Ollama port 11434 to the public internet.
+
+The API explicitly allows the Render page's exact origin so CORS can permit browser reads. CORS alone is not sufficient in every browser: a public HTTPS page reaching a local HTTP service can also depend on browser mixed-content handling and local-network-access permission. Current browsers may ask you to allow `repodoctor-ai.onrender.com` to access the local network. Approve only if you trust this site. Browser policy, enterprise settings, and permission denials can still prevent the request. `localhost` and loopback are treated specially by browsers, so this is not the same as calling an arbitrary HTTP API from HTTPS. See [Chrome's Local Network Access documentation](https://developer.chrome.com/blog/local-network-access) and [MDN's mixed-content guidance](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Mixed_content).
+
+The connection UI diagnoses a failed CORS-readable request with a best-effort `no-cors` reachability probe. If that probe reaches the backend but cannot read its response, the UI points to the CORS allowlist. If it cannot reach the address, the UI points to FastAPI, the URL/port, firewall, and browser local-network permission. JavaScript cannot always identify the exact browser-side reason; check the browser console when the distinction remains uncertain. An Ollama outage or missing configured model is reported separately by `/health`.
+
+The public Render page remains available as a UI, but it cannot provide AI results to visitors unless their browser can reach an API they control. For reliable private/local use, serve the frontend locally next to FastAPI and Ollama. For a public multi-user service, host FastAPI at an HTTPS address with authentication, rate limits, and an explicitly managed inference service; do not point that public backend at a developer's loopback Ollama. Never expose an unauthenticated FastAPI/Ollama port as a shortcut.
 
 ## Configuration
 
-Copy .env.example to .env and adjust as needed:
+The application loads `.env` from the project directory when `app.config` is imported. `python-dotenv` is installed by `requirements.txt`. Existing process-level environment variables take precedence over values in `.env`. Copy `.env.example` to `.env` on Windows with `Copy-Item .env.example .env`, then edit as needed:
 
-- OLLAMA_BASE_URL defaults to http://localhost:11434
-- OLLAMA_MODEL defaults to qwen2.5-coder:1.5b
-- CORS_ORIGINS is a comma-separated list of allowed frontend origins
+- APP_NAME defaults to `RepoDoctor AI`
+- OLLAMA_BASE_URL defaults to `http://localhost:11434`
+- OLLAMA_MODEL defaults to `qwen2.5-coder:1.5b`; `/health` reports whether it is installed
+- OLLAMA_TIMEOUT_SECONDS defaults to `120`
+- MAX_CODE_CHARS defaults to `20000`
+- CORS_ORIGINS is a comma-separated list of exact allowed frontend origins; the example includes the Render site and local development origins
 
 Do not commit secrets or expose a local Ollama endpoint to the public internet.
 

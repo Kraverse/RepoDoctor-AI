@@ -33,6 +33,7 @@ export function createApiClient({ getBase, fetchImpl = (...args) => fetch(...arg
               : `Request failed (HTTP ${response.status}).`;
         const error = new Error(detail);
         error.httpStatus = response.status;
+        error.code = 'HTTP_ERROR';
         throw error;
       }
       if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -41,16 +42,44 @@ export function createApiClient({ getBase, fetchImpl = (...args) => fetch(...arg
       return data;
     } catch (error) {
       if (error.name === 'AbortError') {
-        throw new Error('The request timed out. Check that FastAPI and Ollama are running, then try again.');
+        const timeoutError = new Error('The request timed out. Check that FastAPI and Ollama are running, then try again.');
+        timeoutError.code = 'TIMEOUT';
+        throw timeoutError;
       }
       if (error instanceof TypeError) {
-        throw new Error(`Could not connect to ${base}. Check the FastAPI address and CORS configuration.`);
+        const connectionError = new Error(`The browser could not read a response from ${base}.`);
+        connectionError.code = 'NETWORK_OR_CORS';
+        throw connectionError;
       }
       throw error;
     } finally {
       clearTimeout(timer);
     }
   };
+}
+
+/**
+ * A no-CORS GET can tell whether a cross-origin endpoint responds at the network
+ * level when a normal fetch is unreadable. An opaque response suggests CORS;
+ * a rejection is inconclusive because network and browser local-access blocks
+ * can both reject fetches.
+ */
+export async function probeBackend(base, { fetchImpl = (...args) => fetch(...args), timeoutMs = 5000 } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetchImpl(`${base.replace(/\/+$/, '')}/health`, {
+      method: 'GET',
+      mode: 'no-cors',
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    return { state: response.type === 'opaque' ? 'reachable_opaque' : 'reachable' };
+  } catch (error) {
+    return { state: error.name === 'AbortError' ? 'timeout' : 'unreachable' };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Interpret the fields returned by GET /health without conflating model and service failures. */

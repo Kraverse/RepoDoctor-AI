@@ -1,4 +1,4 @@
-import { classifyHealthResponse, createApiClient, getAssumptionsText } from './api.js';
+import { classifyHealthResponse, createApiClient, getAssumptionsText, probeBackend } from './api.js';
 
 const DEFAULT_API = 'http://127.0.0.1:8000';
 const $ = (id) => document.getElementById(id);
@@ -21,7 +21,31 @@ function apiBase() {
   let parsed;
   try { parsed = new URL(raw); } catch { throw new Error('Enter a valid backend URL, such as http://127.0.0.1:8000.'); }
   if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('The backend URL must start with http:// or https://.');
+  if (parsed.username || parsed.password || parsed.search || parsed.hash) throw new Error('Enter only the backend origin and optional path, without credentials, query parameters, or fragments.');
+  const host = parsed.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  const loopback = host === 'localhost' || host.endsWith('.localhost') || host === '::1' || /^127(?:\.\d{1,3}){3}$/.test(host);
+  if (window.location.protocol === 'https:' && parsed.protocol === 'http:' && !loopback) {
+    throw new Error('This HTTPS page cannot call a non-local HTTP API. Use an HTTPS API URL; HTTP is allowed only for localhost/loopback, subject to browser local-network permissions.');
+  }
   return raw.replace(/\/+$/, '');
+}
+async function diagnoseConnectionFailure(error) {
+  let base;
+  try { base = apiBase(); } catch { return { state: 'offline', title: 'Invalid API URL', message: error.message }; }
+  if (!['NETWORK_OR_CORS', 'TIMEOUT'].includes(error.code)) return { state: 'offline', title: 'Request failed', message: error.message };
+  const probe = await probeBackend(base, { timeoutMs: 5000 });
+  if (probe.state === 'reachable_opaque') {
+    return {
+      state: 'degraded',
+      title: 'Backend responds, but the browser cannot read it',
+      message: `Likely CORS: FastAPI responded to a reachability-only check. Set CORS_ORIGINS to include exactly ${window.location.origin}, restart FastAPI, and retry. If the browser asks, also allow this site to access the local network.`,
+    };
+  }
+  return {
+    state: 'offline',
+    title: 'FastAPI unreachable or browser-blocked',
+    message: `No response was confirmed from ${base}. Start FastAPI on the same computer as this browser and verify the URL/port and firewall. If using Chrome or Edge, allow local-network access for ${window.location.origin} if prompted. A denied browser permission can look the same as a stopped server.`,
+  };
 }
 function setConnection(status, message, modelsMessage) {
   const node = $('connection'); node.dataset.state = status;
@@ -236,9 +260,15 @@ async function runTool(requestMode = state.mode, codeOverride = null, languageOv
     }
     setConnection('online', 'FastAPI connected · response received');
   } catch (error) {
-    state.errors[requestMode] = error.message || 'Request failed. Check the backend and retry.';
-    if (error.httpStatus) setConnection('degraded', `Backend responded · HTTP ${error.httpStatus}`, error.message);
-    else if (/could not connect|timed out|valid backend URL|must start with http/i.test(error.message)) setConnection('offline', 'FastAPI connection failed', error.message);
+    if (error.code === 'NETWORK_OR_CORS' || error.code === 'TIMEOUT') {
+      const diagnosis = await diagnoseConnectionFailure(error);
+      state.errors[requestMode] = diagnosis.message;
+      setConnection(diagnosis.state, diagnosis.title, diagnosis.message);
+    } else {
+      state.errors[requestMode] = error.message || 'Request failed. Check the backend and retry.';
+      if (error.httpStatus === 503) setConnection('degraded', 'FastAPI reachable · Ollama or configured model unavailable', error.message);
+      else if (error.httpStatus) setConnection('degraded', `Backend responded · HTTP ${error.httpStatus}`, error.message);
+    }
   } finally { state.activeRequestMode = null; updateRunButton(); renderResult(); }
 }
 function formatModels(models) {
@@ -248,6 +278,8 @@ function formatModels(models) {
 }
 async function checkConnection() {
   if (state.connectionRequestActive || state.activeRequestMode !== null) return;
+  try { apiBase(); }
+  catch (error) { setConnection('offline', 'Invalid FastAPI URL', error.message); return; }
   state.connectionRequestActive = true; const button = $('checkConnection'); button.disabled = true; button.textContent = 'Checking…';
   setConnection('degraded', 'Checking FastAPI and Ollama…', 'Requesting /health and /api/v1/models.');
   try {
@@ -258,11 +290,17 @@ async function checkConnection() {
     catch (error) { modelError = error; modelText = `Could not load models: ${error.message}`; }
     if (classified.state === 'offline') setConnection('offline', classified.message, modelText);
     else if (classified.state === 'degraded') setConnection('degraded', classified.message, modelText);
+    else if (modelError?.httpStatus === 503) setConnection('degraded', 'FastAPI reachable · Ollama is unavailable', modelText);
     else if (modelError) setConnection('degraded', 'FastAPI and Ollama responded, but the model list request failed.', modelText);
     else if (!Array.isArray(models.models)) setConnection('degraded', 'FastAPI returned an unexpected models response.', modelText);
     else if (models.models.length === 0) setConnection('degraded', 'Ollama is reachable, but no models were found.', modelText);
     else setConnection('online', `${classified.message}${Number.isInteger(health.model_count) ? ` · ${health.model_count} model(s)` : ''}`, modelText);
-  } catch (error) { setConnection('offline', error.message || 'Connection check failed.', 'Check the API URL, server, and backend CORS settings.'); }
+  } catch (error) {
+    if (error.code === 'NETWORK_OR_CORS' || error.code === 'TIMEOUT') {
+      const diagnosis = await diagnoseConnectionFailure(error);
+      setConnection(diagnosis.state, diagnosis.title, diagnosis.message);
+    } else setConnection('offline', 'FastAPI request failed', error.message || 'Connection check failed.');
+  }
   finally { state.connectionRequestActive = false; button.disabled = false; button.textContent = 'Check connection'; }
 }
 function loadSample() {
