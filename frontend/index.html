@@ -7,7 +7,9 @@
   <meta name="description" content="A local-first AI workbench for debugging code, trimming safely, and checking Python syntax.">
   <title>RepoDoctor AI — Developer workbench</title>
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./github-import.css">
   <script type="module" src="./app.js"></script>
+  <script type="module" src="./github-import-ui.js"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -25,7 +27,6 @@
         <label class="api-setting" for="apiBase">FastAPI URL <input id="apiBase" type="url" value="http://127.0.0.1:8000" spellcheck="false" autocomplete="url" aria-label="FastAPI backend URL"></label>
       </div>
     </header>
-
     <main>
       <section class="intro" aria-labelledby="page-title">
         <div class="eyebrow"><span class="eyebrow-line"></span> LOCAL-FIRST CODE WORKBENCH</div>
@@ -33,12 +34,41 @@
         <p>Find the bug. Explore a simpler version. Check syntax. Your code stays yours until you choose otherwise.</p>
       </section>
 
+      <section class="github-import" aria-labelledby="githubImportTitle">
+        <div class="github-import-head">
+          <div><div class="panel-kicker">REPOSITORY WORKFLOW</div><h2 id="githubImportTitle">Connect GitHub Repository</h2><p>Browse a public repository and load a source file into the existing workbench.</p></div>
+        </div>
+        <div class="github-import-form">
+          <label for="githubRepoUrl">Public repository URL
+            <input id="githubRepoUrl" type="url" placeholder="https://github.com/owner/repository" autocomplete="url" spellcheck="false">
+          </label>
+          <label for="githubBranch">Branch
+            <select id="githubBranch" disabled><option value="">Connect a repository first</option></select>
+          </label>
+          <button id="connectGithub" type="button">Connect repository</button>
+          <button id="loadGithubFiles" type="button" disabled>Load source files</button>
+        </div>
+        <p id="githubImportStatus" class="github-import-status" role="status" aria-live="polite">Public repositories only. No GitHub token is requested or stored.</p>
+        <div class="github-import-body">
+          <div id="githubFileList" class="github-file-list" aria-label="Supported repository source files"><p class="github-empty">Connect a repository to browse supported files.</p></div>
+          <div class="github-import-details">
+            <div id="githubSelectedFile" class="github-selected-file">No file selected</div>
+            <p class="github-import-limits">Supported text/source files only · Up to 200 files listed · Files over 20,000 characters are skipped or rejected · Imported code is never executed.</p>
+            <div class="github-analysis-actions">
+              <button id="analyzeGithubDebug" type="button" disabled>Analyze with Debugger</button>
+              <button id="analyzeGithubTrim" type="button" disabled>Send to CodeTrim</button>
+              <button id="analyzeGithubVerify" type="button" disabled>Check with Verifier</button>
+            </div>
+            <p class="github-private-note">Private repositories are not enabled yet; a secure GitHub sign-in integration is required before supporting them.</p>
+          </div>
+        </div>
+      </section>
+
       <nav class="tool-tabs" aria-label="Choose a tool" role="tablist">
         <button class="tool-tab active" id="tab-debug" role="tab" aria-selected="true" aria-controls="workspace" data-mode="debug"><span class="tab-icon">⌁</span> AI Debugger</button>
         <button class="tool-tab" id="tab-trim" role="tab" aria-selected="false" aria-controls="workspace" data-mode="trim" tabindex="-1"><span class="tab-icon">⤵</span> CodeTrim</button>
         <button class="tool-tab" id="tab-verify" role="tab" aria-selected="false" aria-controls="workspace" data-mode="verify" tabindex="-1"><span class="tab-icon">✓</span> Code Verifier</button>
       </nav>
-
       <section id="workspace" class="workspace" role="tabpanel" aria-labelledby="tab-debug">
         <section class="panel source-panel" aria-labelledby="source-heading">
           <div class="panel-heading">
@@ -67,7 +97,6 @@
             <button class="run-button" id="runAction" type="button"><span>Diagnose code</span><span aria-hidden="true">↗</span></button>
           </div>
         </section>
-
         <section class="panel result-panel" aria-labelledby="resultHeading">
           <div class="panel-heading result-heading">
             <div><div class="panel-kicker">02 / REVIEW</div><h2 id="resultHeading">Diagnosis</h2></div>
@@ -78,7 +107,6 @@
           </div>
         </section>
       </section>
-
       <section class="verify-strip" aria-label="Quick syntax verification">
         <div class="verify-copy"><span class="verify-icon" aria-hidden="true">✓</span><div><strong>Python syntax check</strong><span>Static parsing only. No code is executed or run.</span></div></div>
         <button id="verifyAction" class="verify-button" type="button">Check current code <span aria-hidden="true">→</span></button>
