@@ -2,65 +2,58 @@
 
 **Local-first AI debugging and code minimization powered by Ollama.**
 
-RepoDoctor AI is an experimental developer tool that diagnoses code errors, proposes focused fixes, and explores simpler alternatives. It uses a local Ollama model by default, so the initial workflow does not require paid LLM API credits.
+RepoDoctor AI diagnoses code errors, proposes focused fixes, explores simpler alternatives, and performs static Python syntax checks. AI suggestions can be incorrect; the verifier does not execute code or prove behavior.
 
-> **Project status:** early MVP scaffold. AI suggestions are not guaranteed to be correct. The initial verifier performs static Python syntax checks only; it does not claim arbitrary code was safely executed or that a patch is behaviorally correct.
+## Features
 
-## Planned features
+- **AI Debugger:** analyze source and optional error details, then review a proposed patch.
+- **CodeTrim:** generate a simpler candidate and compare source size.
+- **Code Verifier:** static Python syntax validation only.
+- **GitHub Repository Import:** browse a public repository's branches and supported source files, load a file into the editor, and send it to any existing code tool.
+- **Local model:** Ollama API at `http://localhost:11434`, using `qwen2.5-coder:1.5b` by default.
 
-- **Debug:** submit source code and an optional error message; receive an explanation and proposed patch.
-- **CodeTrim:** request a simpler version and compare line/character counts.
-- **Verify:** perform safe static Python syntax validation.
-- **Local model:** call Ollama's local API at http://localhost:11434 using qwen2.5-coder:1.5b by default.
-- **Honest status:** distinguish generated suggestions from static checks; passing syntax validation is not proof of correctness.
+## Import a GitHub repository
+
+1. Find **Connect GitHub Repository** near the top of the workbench.
+2. Enter a public URL such as `https://github.com/owner/repository` and click **Connect repository**.
+3. Select a branch, then click **Load source files**.
+4. Select a supported file to load it into the existing editor.
+5. Choose **Analyze with Debugger**, **Send to CodeTrim**, or **Check with Verifier**. The selected repository, branch, and file remain visible during the workflow.
+
+The importer uses GitHub's public API and raw file endpoint directly from the browser. No GitHub token is requested, sent, or stored. Private repositories are **not supported** in this version; a secure server-side GitHub OAuth/App flow is required before adding them. Unauthenticated GitHub API rate limits apply. At most 200 supported files are shown; files over 20,000 characters are skipped/rejected. Unsupported/binary files, missing branches/files, very large truncated trees, and API errors produce user-facing messages. Imported code is never executed. Do not import secrets or sensitive source code.
 
 ## Architecture
 
-~~~text
-Browser / API client
-        |
-        v
-FastAPI backend (this repository)
-        |
-        v
-Ollama local HTTP API
-        |
-        v
-qwen2.5-coder:1.5b
-~~~
+```text
+Browser ── GitHub public API/raw source (read-only)
+   │
+   └── FastAPI backend ── Ollama local HTTP API ── qwen2.5-coder:1.5b
+```
 
-The frontend should call the FastAPI backend, not Ollama directly. A hosted backend cannot automatically access Ollama running on your personal computer; the first version is intended for local development.
+The frontend sends AI requests to FastAPI, not directly to Ollama. A hosted backend cannot automatically access Ollama running on a personal computer; the initial AI workflow is intended for local development.
 
 ## Requirements
 
 - Windows 10/11, macOS, or Linux
 - Python 3.11+
-- Ollama: https://ollama.com/download
-- A model downloaded in Ollama
+- Node.js 18+ for frontend tests
+- Ollama and a downloaded model: https://ollama.com/download
 
 ## Windows PowerShell setup
 
-~~~powershell
+```powershell
 git clone https://github.com/Kraverse/RepoDoctor-AI.git
 cd RepoDoctor-AI
-
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-
 ollama pull qwen2.5-coder:1.5b
-ollama list
-
 Copy-Item .env.example .env
-# Edit .env if your Ollama URL, model, or allowed frontend origins differ.
-# The backend loads this file automatically; process environment variables override it.
-
 uvicorn app.main:app --reload
-~~~
+```
 
-If PowerShell blocks virtual-environment activation, use .\.venv\Scripts\python.exe -m pip install -r requirements.txt and .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload.
+If activation is blocked, use `.\.venv\Scripts\python.exe -m pip install -r requirements.txt` and `.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload`.
 
 Open:
 - API health: http://127.0.0.1:8000/health
@@ -71,94 +64,52 @@ Open:
 
 In a second terminal, from the repository root:
 
-~~~sh
+```powershell
 python -m http.server 5173 --bind 127.0.0.1 --directory frontend
-~~~
+```
 
-Then open http://127.0.0.1:5173. The FastAPI server and Ollama must also be running. The frontend defaults to `http://127.0.0.1:8000`; change the API field in the header to use a different backend URL. That setting is saved in this browser only. The connection indicator checks `/health` and `/api/v1/models`, displays model names, and checks whether the configured Ollama model is installed.
+Open http://127.0.0.1:5173. FastAPI and Ollama must also be running. The frontend defaults to `http://127.0.0.1:8000`; change the API field to use another backend URL. The frontend has no build step. Run `cd frontend && npm test` and `npm run check` for frontend tests and syntax checks; run `python -m pytest -q` for backend tests.
 
-The frontend is dependency-light static HTML, CSS, and JavaScript; no frontend build step or package installation is required. To run the frontend API-client tests, use `cd frontend && npm test` (Node.js 18+). To syntax-check its JavaScript, run `npm run check` from `frontend`.
+The default exact-origin CORS allowlist includes local development origins and `https://repodoctor-ai.onrender.com`. If changing the frontend origin, add its exact scheme/host/port to `CORS_ORIGINS` in `.env`. Do not use `*`.
 
-The default exact-origin CORS allowlist includes the local development origins and `https://repodoctor-ai.onrender.com`. If you change the frontend origin, add that exact scheme/host/port to `CORS_ORIGINS` (comma-separated) in `.env`, restart FastAPI, and reload the page. Do not set the value to `*`.
+### Deployed frontend and local Ollama
 
-### Using the deployed Render frontend with your local Ollama
-
-The Render page is served over HTTPS, but its API URL is entered by the browser. When you use `http://127.0.0.1:8000`, `127.0.0.1` means the computer running that browser—not Render and not a different computer. You must start FastAPI on the same computer where you opened the page. FastAPI's default Uvicorn binding is loopback-only; keep it that way and do not expose port 8000 or Ollama port 11434 to the public internet.
-
-The API explicitly allows the Render page's exact origin so CORS can permit browser reads. CORS alone is not sufficient in every browser: a public HTTPS page reaching a local HTTP service can also depend on browser mixed-content handling and local-network-access permission. Current browsers may ask you to allow `repodoctor-ai.onrender.com` to access the local network. Approve only if you trust this site. Browser policy, enterprise settings, and permission denials can still prevent the request. `localhost` and loopback are treated specially by browsers, so this is not the same as calling an arbitrary HTTP API from HTTPS. See [Chrome's Local Network Access documentation](https://developer.chrome.com/blog/local-network-access) and [MDN's mixed-content guidance](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Mixed_content).
-
-The connection UI diagnoses a failed CORS-readable request with a best-effort `no-cors` reachability probe. If that probe reaches the backend but cannot read its response, the UI points to the CORS allowlist. If it cannot reach the address, the UI points to FastAPI, the URL/port, firewall, and browser local-network permission. JavaScript cannot always identify the exact browser-side reason; check the browser console when the distinction remains uncertain. An Ollama outage or missing configured model is reported separately by `/health`.
-
-The public Render page remains available as a UI, but it cannot provide AI results to visitors unless their browser can reach an API they control. For reliable private/local use, serve the frontend locally next to FastAPI and Ollama. For a public multi-user service, host FastAPI at an HTTPS address with authentication, rate limits, and an explicitly managed inference service; do not point that public backend at a developer's loopback Ollama. Never expose an unauthenticated FastAPI/Ollama port as a shortcut.
+The Render page is served over HTTPS, but `http://127.0.0.1:8000` means the computer running the browser. Start FastAPI on that computer and keep it loopback-bound. CORS alone may not be sufficient: browser mixed-content or local-network permissions can block a hosted HTTPS page from reaching a local HTTP service. For reliable local use, serve the frontend next to FastAPI and Ollama. For a public multi-user service, host FastAPI over HTTPS with authentication, rate limits, and managed inference. Never expose an unauthenticated FastAPI or Ollama port publicly.
 
 ## Configuration
 
-The application loads `.env` from the project directory when `app.config` is imported. `python-dotenv` is installed by `requirements.txt`. Existing process-level environment variables take precedence over values in `.env`. Copy `.env.example` to `.env` on Windows with `Copy-Item .env.example .env`, then edit as needed:
-
-- APP_NAME defaults to `RepoDoctor AI`
-- OLLAMA_BASE_URL defaults to `http://localhost:11434`
-- OLLAMA_MODEL defaults to `qwen2.5-coder:1.5b`; `/health` reports whether it is installed
-- OLLAMA_TIMEOUT_SECONDS defaults to `120`
-- MAX_CODE_CHARS defaults to `20000`
-- CORS_ORIGINS is a comma-separated list of exact allowed frontend origins; the example includes the Render site and local development origins
-
-Do not commit secrets or expose a local Ollama endpoint to the public internet.
+The app loads `.env` from the project directory when `app.config` is imported. Process environment variables take precedence. Settings include `APP_NAME`, `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT_SECONDS`, `MAX_CODE_CHARS`, and exact-origin `CORS_ORIGINS`.
 
 ## API endpoints
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| GET | /health | API and Ollama connectivity status |
-| GET | /api/v1/models | List models visible to Ollama |
+| GET | /health | API and Ollama connectivity |
+| GET | /api/v1/models | Ollama model list |
 | POST | /api/v1/debug | Diagnose code and propose a patch |
-| POST | /api/v1/trim | Propose a simplified version and measure size |
-| POST | /api/v1/verify | Static Python syntax check; does not execute code |
+| POST | /api/v1/trim | Propose simpler code |
+| POST | /api/v1/verify | Static Python syntax check; never executes code |
 
-See the interactive schema at /docs after starting the server.
+## Tests
 
-## Example request
-
-~~~powershell
-$body = @{
-  code = @'
-def add(a, b):
-    return a - b
-'@
-  language = "python"
-  error_message = "Expected addition, but the function subtracts."
-} | ConvertTo-Json
-
-Invoke-RestMethod -Uri http://127.0.0.1:8000/api/v1/debug -Method Post -ContentType "application/json" -Body $body
-~~~
-
-## Testing
-
-~~~powershell
+```powershell
+cd frontend
+npm test
+npm run check
+cd ..
 python -m pytest -q
-~~~
+```
 
-Tests mock Ollama calls and do not require a running model or paid service.
+Frontend GitHub-import tests mock GitHub responses and do not consume API rate limits. Backend tests mock Ollama.
 
 ## Safety and limitations
 
 - Model output is untrusted and may be incorrect.
-- The initial verifier parses Python syntax only. It does not execute submitted code.
-- Do not paste secrets, credentials, private source code, or sensitive customer data into prompts.
-- Do not use this prototype to run arbitrary repositories or install dependencies automatically.
-- A passing syntax check does not establish behavioral correctness, security, or global minimality.
-- Code reduction percentages compare source text size only; fewer characters are not necessarily better code.
-
-## Roadmap
-
-- [x] Ollama local model integration scaffold
-- [x] Debug and trim API endpoints
-- [x] Safe static Python syntax validation
-- [x] Unit tests with mocked model calls
-- [x] Frontend editor, debugger, CodeTrim, and diff review
-- [ ] AST-aware, language-specific transformations
-- [ ] Isolated test runner with explicit resource limits
-- [ ] Reproducible benchmark on real bug-fixing tasks
-- [ ] CI workflow and release packaging
+- The verifier parses Python syntax only; it does not execute code.
+- Do not execute or install dependencies from imported repositories automatically.
+- Never paste secrets, credentials, private source code, or sensitive customer data into prompts.
+- Public GitHub API rate limits apply. Private repositories need a future secure authorization flow.
+- Character reduction measures text size, not code quality or behavioral equivalence.
 
 ## License
 
